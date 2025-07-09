@@ -4,12 +4,24 @@ const authRoutes = require('./routes/auth');
 const sequelize = require('./database/db');
 const corsMiddleware = require('./middleware/cors'); // ← Import your CORS config
 const cityRoutes = require('./routes/city');
-  
+const gamesRoutes = require('./routes/games');
+const groundRoutes = require('./routes/ground');
+const groundRequestRoutes = require('./routes/groundRequest');
+const userRoutes = require('./routes/users');
+const path = require('path');
+
 app.use(corsMiddleware); // ← Use it before routes
 app.use(express.json());
 
+// Serve static files from the public directory
+app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
+
 app.use('/api/auth', authRoutes);
 app.use('/api/city', cityRoutes);
+app.use('/api/games', gamesRoutes);
+app.use('/api/ground', groundRoutes);
+app.use('/api/groundRequest', groundRequestRoutes);
+app.use('/api/users', userRoutes);
 
 sequelize.authenticate()
   .then(() => {

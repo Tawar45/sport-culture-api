@@ -6,7 +6,7 @@ const authMiddleware = require('../middleware/authMiddleware');
 
 router.post('/register', authController.register);
 router.post('/login', authController.login);
-router.post('/city', cityController.add);
+// router.post('/city', cityController.add);
 
 router.post('/hass-password', authController.generateHashPassword);
 

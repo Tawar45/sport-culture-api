@@ -1,48 +1,41 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../database/db');
 
-const User = sequelize.define('User', {
+const GroundRequest = sequelize.define('GroundRequest', {
   id: {
     type: DataTypes.INTEGER,
-    autoIncrement: true,
+    autoIncrement: true,  
     primaryKey: true,
   },
-  username: {
+  name: {
     type: DataTypes.STRING,
     allowNull: false,
     unique: true,
   },
-  email: {
-    type: DataTypes.STRING,
-    allowNull: false,
-    unique: true,
-    validate: {
-      isEmail: true,
-    },
-  },
-  password: {
+  address: {
     type: DataTypes.STRING,
     allowNull: false,
   },
-  usertype: {
+  city: {
     type: DataTypes.STRING,
     allowNull: false,
-    defaultValue: 'user',
-    enum: ['user', 'admin','vendor'],
   },
-  phone_number: {
+  mobile: {
     type: DataTypes.STRING,
-    allowNull: true
+    allowNull: false,
   },
- profile_image: {
+  status: {
     type: DataTypes.STRING,
-    allowNull: true
-},
-status: {
-  type: DataTypes.STRING,
-  allowNull: true,
-  defaultValue: 'active'
-}
-});
+    allowNull: false,
+  },
+  gamesType: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  groundId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+  },
+  });
 
-module.exports = User; 
+module.exports = GroundRequest; 
