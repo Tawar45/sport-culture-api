@@ -8,6 +8,7 @@ const gamesRoutes = require('./routes/games');
 const groundRoutes = require('./routes/ground');
 const groundRequestRoutes = require('./routes/groundRequest');
 const userRoutes = require('./routes/users');
+const courtRoutes = require('./routes/court');
 const path = require('path');
 
 app.use(corsMiddleware); // ← Use it before routes
@@ -22,6 +23,7 @@ app.use('/api/games', gamesRoutes);
 app.use('/api/ground', groundRoutes);
 app.use('/api/groundRequest', groundRequestRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/court', courtRoutes);
 
 sequelize.authenticate()
   .then(() => {

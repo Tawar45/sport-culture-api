@@ -21,7 +21,7 @@ const groundSchema = Joi.object({
     .messages({
       'string.empty': 'City is required'
     }),
-  game: Joi.string().min(2).max(50).required().trim()
+  game: Joi.string().min(1).max(50).required().trim()
     .messages({
       'string.empty': 'Game is required'
     }),

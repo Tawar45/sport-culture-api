@@ -13,6 +13,7 @@ Thumbs.db
 dist/
 build/
 out/
+public/
 
 # Dependency directories
 .pnp/
