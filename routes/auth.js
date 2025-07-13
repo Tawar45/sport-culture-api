@@ -10,9 +10,10 @@ router.post('/login', authController.login);
 
 router.post('/hass-password', authController.generateHashPassword);
 
-// Example protected route
-router.get('/profile', authMiddleware, (req, res) => {
-  res.json({ user: req.user });
-});
+// Password change route (requires authentication)
+router.post('/change-password', authMiddleware, authController.changePassword);
+
+// Get user profile (requires authentication)
+router.get('/profile', authMiddleware, authController.getProfile);
 
 module.exports = router; 

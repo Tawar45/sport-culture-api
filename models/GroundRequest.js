@@ -4,38 +4,64 @@ const sequelize = require('../database/db');
 const GroundRequest = sequelize.define('GroundRequest', {
   id: {
     type: DataTypes.INTEGER,
-    autoIncrement: true,  
+    autoIncrement: true,
     primaryKey: true,
   },
-  name: {
-    type: DataTypes.STRING,
-    allowNull: false,
-    unique: true,
-  },
-  address: {
-    type: DataTypes.STRING,
+  user_name: {
+    type: DataTypes.STRING(100),
     allowNull: false,
   },
-  city: {
-    type: DataTypes.STRING,
+  user_email: {
+    type: DataTypes.STRING(100),
     allowNull: false,
   },
-  mobile: {
-    type: DataTypes.STRING,
+  user_phone: {
+    type: DataTypes.STRING(20),
+    allowNull: true,
+  },
+  ground_name: {
+    type: DataTypes.STRING(100),
     allowNull: false,
+  },
+  ground_address: {
+    type: DataTypes.STRING(200),
+    allowNull: false,
+  },
+  ground_city: {
+    type: DataTypes.STRING(50),
+    allowNull: false,
+  },
+  game_type: {
+    type: DataTypes.STRING(50),
+    allowNull: false,
+  },
+  description: {
+    type: DataTypes.TEXT,
+    allowNull: true,
   },
   status: {
-    type: DataTypes.STRING,
-    allowNull: false,
+    type: DataTypes.ENUM('pending', 'approved', 'rejected'),
+    defaultValue: 'pending',
   },
-  gamesType: {
-    type: DataTypes.STRING,
-    allowNull: false,
+  admin_notes: {
+    type: DataTypes.TEXT,
+    allowNull: true,
   },
-  groundId: {
+  requested_date: {
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW,
+  },
+  processed_date: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
+  processed_by: {
     type: DataTypes.INTEGER,
-    allowNull: false,
+    allowNull: true,
   },
-  });
+}, {
+  tableName: 'ground_requests',
+  timestamps: true,
+});
 
 module.exports = GroundRequest; 

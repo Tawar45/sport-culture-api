@@ -134,7 +134,12 @@ exports.login = async (req, res) => {
     } else if(user.usertype === 'user'){
       return res.status(400).json({ message: 'User cannot login' });
     } else {
-    const token = generateToken({ id: user.id, email: user.email });
+    const token = generateToken({ 
+      id: user.id, 
+      email: user.email,
+      username: user.username,
+      usertype: user.usertype
+    });
     res.json({ message: 'Login successfully', token, 
       user: {
       email: user.email,
@@ -163,5 +168,125 @@ exports.generateHashPassword = async (req, res) => {
     res.json({ hash });
   } catch (error) {
     res.status(500).json({ message: 'Error generating hash', error: error.message });
+  }
+};
+
+// Change password functionality
+exports.changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const userId = req.user.id; // From auth middleware
+
+    // Validation schema
+    const schema = Joi.object({
+      currentPassword: Joi.string().required().messages({
+        'string.empty': 'Current password is required',
+        'any.required': 'Current password is required'
+      }),
+      newPassword: Joi.string().min(6).required().messages({
+        'string.empty': 'New password is required',
+        'string.min': 'New password must be at least 6 characters long',
+        'any.required': 'New password is required'
+      })
+    });
+
+    // Validate request body
+    const { error, value } = schema.validate(req.body);
+    if (error) {
+      return res.status(400).json({
+        success: false,
+        message: error.details[0].message
+      });
+    }
+
+    // Find user
+    const user = await User.findByPk(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Verify current password
+    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password);
+    if (!isCurrentPasswordValid) {
+      return res.status(400).json({
+        success: false,
+        message: 'Current password is incorrect'
+      });
+    }
+
+    // Check if new password is same as current password
+    const isNewPasswordSame = await bcrypt.compare(newPassword, user.password);
+    if (isNewPasswordSame) {
+      return res.status(400).json({
+        success: false,
+        message: 'New password must be different from current password'
+      });
+    }
+
+    // Hash new password
+    const salt = await bcrypt.genSalt(10);
+    const hashedNewPassword = await bcrypt.hash(newPassword, salt);
+
+    // Update user password
+    await user.update({ password: hashedNewPassword });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Password changed successfully'
+    });
+
+  } catch (error) {
+    console.error('Password change error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to change password',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+// Get user profile (for token validation)
+exports.getProfile = async (req, res) => {
+  try {
+    const userId = req.user.id; // From auth middleware
+
+    // Find user
+    const user = await User.findByPk(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Return user profile data (excluding sensitive information)
+    const userProfile = {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      phone_number: user.phone_number,
+      usertype: user.usertype,
+      status: user.status,
+      profile_image: user.profile_image ? `${req.protocol}://${req.get('host')}${user.profile_image}` : '',
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt
+    };
+
+    return res.status(200).json({
+      success: true,
+      message: 'Profile fetched successfully',
+      user: userProfile
+    });
+
+  } catch (error) {
+    console.error('Profile fetch error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch profile',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 }; 

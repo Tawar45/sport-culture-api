@@ -1,47 +1,119 @@
-const GroundRequest = require('../models/GroundRequest'); // Adjust path as needed
+const GroundRequest = require('../models/GroundRequest');
 const Joi = require('joi');
-const Ground = require('../models/Ground');
-const { Op } = require('sequelize');
-    
 
-// Validation schema
+// Validation schema for ground request
 const groundRequestSchema = Joi.object({
-  name: Joi.string().min(3).max(100).required().trim()
-    .messages({
-      'string.empty': 'Ground name is required',
-      'string.min': 'Ground name must be at least 3 characters',
-      'string.max': 'Ground name cannot exceed 100 characters'
-    }),
-  address: Joi.string().min(5).max(200).required().trim()
-    .messages({
-      'string.empty': 'Address is required',
-      'string.min': 'Address must be at least 5 characters'
-    }),
-  city: Joi.string().min(2).max(50).required().trim()
-    .messages({
-      'string.empty': 'City is required'
-    }),
-  mobile: Joi.string().min(2).max(50).required().trim()
-    .messages({
-      'string.empty': 'Mobile is required'
-    }),
-  groundId: Joi.string().min(1).max(50).required().trim()
-    .messages({
-      'string.empty': 'Ground ID is required'
-    }),
-  gamesType: Joi.string().min(1).max(50).required().trim()
-    .messages({
-      'string.empty': 'Games type is required'
-    }),
-    
-  status: Joi.string().valid('pending', 'approved', 'rejected').required()
-    .messages({
-      'string.empty': 'Status is required',
-      'any.only': 'Status must be one of: pending, approved, rejected',
-      'any.required': 'Status is required'
-    }),
+  user_id: Joi.number().required().messages({
+    'number.base': 'User ID is required',
+    'any.required': 'User ID is required'
+  }),
+  user_name: Joi.string().min(2).max(100).required().messages({
+    'string.empty': 'User name is required',
+    'string.min': 'User name must be at least 2 characters',
+    'string.max': 'User name cannot exceed 100 characters'
+  }),
+  user_email: Joi.string().email().required().messages({
+    'string.email': 'Please provide a valid email address',
+    'any.required': 'Email is required'
+  }),
+  user_phone: Joi.string().pattern(/^[0-9]{10,15}$/).allow(null, '').messages({
+    'string.pattern.base': 'Phone number must be between 10 and 15 digits'
+  }),
+  ground_name: Joi.string().min(3).max(100).required().messages({
+    'string.empty': 'Ground name is required',
+    'string.min': 'Ground name must be at least 3 characters',
+    'string.max': 'Ground name cannot exceed 100 characters'
+  }),
+  ground_address: Joi.string().min(5).max(200).required().messages({
+    'string.empty': 'Ground address is required',
+    'string.min': 'Ground address must be at least 5 characters',
+    'string.max': 'Ground address cannot exceed 200 characters'
+  }),
+  ground_city: Joi.string().min(2).max(50).required().messages({
+    'string.empty': 'City is required',
+    'string.min': 'City must be at least 2 characters',
+    'string.max': 'City cannot exceed 50 characters'
+  }),
+  game_type: Joi.string().min(2).max(50).required().messages({
+    'string.empty': 'Game type is required',
+    'string.min': 'Game type must be at least 2 characters',
+    'string.max': 'Game type cannot exceed 50 characters'
+  }),
+  description: Joi.string().max(1000).allow(null, '').messages({
+    'string.max': 'Description cannot exceed 1000 characters'
+  })
 });
 
+// Get all ground requests
+exports.list = async (req, res) => {
+  try {
+    const { status, page = 1, limit = 10 } = req.query;
+    
+    let whereClause = {};
+    if (status && status !== 'all') {
+      whereClause.status = status;
+    }
+
+    const offset = (page - 1) * limit;
+    
+    const groundRequests = await GroundRequest.findAndCountAll({
+      where: whereClause,
+      order: [['createdAt', 'DESC']],
+      limit: parseInt(limit),
+      offset: parseInt(offset)
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Ground requests fetched successfully',
+      data: {
+        requests: groundRequests.rows,
+        total: groundRequests.count,
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(groundRequests.count / limit),
+        hasNext: parseInt(page) < Math.ceil(groundRequests.count / limit),
+        hasPrev: parseInt(page) > 1
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching ground requests:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch ground requests',
+      error: error.message
+    });
+  }
+};
+
+// Get single ground request
+exports.getGroundRequest = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const groundRequest = await GroundRequest.findByPk(id);
+    if (!groundRequest) {
+      return res.status(404).json({
+        success: false,
+        message: 'Ground request not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Ground request fetched successfully',
+      data: groundRequest
+    });
+  } catch (error) {
+    console.error('Error fetching ground request:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch ground request',
+      error: error.message
+    });
+  }
+};
+
+// Add new ground request
 exports.add = async (req, res) => {
   try {
     // Validate request body
@@ -54,104 +126,125 @@ exports.add = async (req, res) => {
       });
     }
 
-    // Destructure validated values
-    const { name, address, city, mobile, groundId, status,gamesType } = value;
-    // // Check if ground ID exists
-    // Check for existing ground request
-    const existingGroundRequest = await GroundRequest.findOne({ 
-      where: { name: name }
-    });
-    
-    if (existingGroundRequest) {
-      return res.status(400).json({
-        success: false,
-        message: 'Ground request already exists'
-      });
-    }
+    // Create new ground request
+    const newGroundRequest = await GroundRequest.create(value);
 
-    // Create new ground request with all fields
-    const newGroundRequest = await GroundRequest.create({
-      name,
-      address,
-      city,
-      mobile,
-      groundId,
-      status,
-      gamesType
-    });
-
-    // Return success response
-    return res.status(201).json({
+    res.status(201).json({
       success: true,
-      message: 'Ground request added successfully',
-      data: {
-        id: newGroundRequest.id,
-        name: newGroundRequest.name,
-        address: newGroundRequest.address,
-        city: newGroundRequest.city,
-        mobile: newGroundRequest.mobile,
-        groundId: newGroundRequest.groundId,
-        gamesType:newGroundRequest.gamesType,
-        status: newGroundRequest.status,
-        createdAt: newGroundRequest.createdAt
-      }
+      message: 'Ground request submitted successfully',
+      data: newGroundRequest
     });
-
   } catch (error) {
     console.error('Error adding ground request:', error);
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
-      message: 'Failed to add ground request',
+      message: 'Failed to submit ground request',
       error: error.message
     });
   }
 };
 
-exports.list = async (req, res) => {
+// Update ground request status
+exports.updateStatus = async (req, res) => {
   try {
-    const groundRequests = await GroundRequest.findAll({
-      attributes: ['id', 'name', 'address', 'city', 'mobile', 'groundId', 'status'],
-      order: [['id', 'ASC']],
+    const { id } = req.params;
+    const { status, admin_notes } = req.body;
+    const adminId = req.user.id; // From auth middleware
+
+    // Validate status
+    const validStatuses = ['pending', 'approved', 'rejected'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid status. Must be pending, approved, or rejected'
+      });
+    }
+
+    // Find ground request
+    const groundRequest = await GroundRequest.findByPk(id);
+    if (!groundRequest) {
+      return res.status(404).json({
+        success: false,
+        message: 'Ground request not found'
+      });
+    }
+
+    // Update status and admin info
+    await groundRequest.update({
+      status,
+      admin_notes,
+      processed_date: new Date(),
+      processed_by: adminId
     });
-    const gamesType = groundRequests.map(groundRequest => groundRequest.gamesType);
-
-    console.log(gamesType);
-    
-    // const gamesTypeArray = gamesType.split(',').map(game => game.trim());
-    // console.log(gamesTypeArray);
-    // console.log(gamesType); 
-    
-    const grounds = await Ground.findAll({
-      where: {
-          game: {
-              [Op.in]: gamesTypeArray
-          }
-      }
-  });
-
-    // Map ground requests to include full image URLs
-    const groundRequestsWithUrls = groundRequests.map(groundRequest => ({
-      id: groundRequest.id,
-      name: groundRequest.name,
-      address: groundRequest.address,
-      city: groundRequest.city,
-      mobile: groundRequest.mobile,
-      groundId: groundRequest.groundId,
-      gamesType:gamesTypeArray,
-      status: groundRequest.status,
-      createdAt: groundRequest.createdAt
-    }));
 
     res.status(200).json({
       success: true,
-      message: 'Ground request list fetched successfully',
-      groundRequests: groundRequestsWithUrls,
+      message: `Ground request ${status} successfully`,
+      data: groundRequest
     });
   } catch (error) {
+    console.error('Error updating ground request status:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to fetch ground request list',
-      error: error.message,
+      message: 'Failed to update ground request status',
+      error: error.message
+    });
+  }
+};
+
+// Delete ground request
+exports.remove = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const groundRequest = await GroundRequest.findByPk(id);
+    if (!groundRequest) {
+      return res.status(404).json({
+        success: false,
+        message: 'Ground request not found'
+      });
+    }
+
+    await groundRequest.destroy();
+
+    res.status(200).json({
+      success: true,
+      message: 'Ground request deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error deleting ground request:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete ground request',
+      error: error.message
+    });
+  }
+};
+
+// Get ground request statistics
+exports.getStats = async (req, res) => {
+  try {
+    const total = await GroundRequest.count();
+    const pending = await GroundRequest.count({ where: { status: 'pending' } });
+    const approved = await GroundRequest.count({ where: { status: 'approved' } });
+    const rejected = await GroundRequest.count({ where: { status: 'rejected' } });
+
+    res.status(200).json({
+      success: true,
+      message: 'Ground request statistics fetched successfully',
+      data: {
+        total,
+        pending,
+        approved,
+        rejected
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching ground request statistics:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch ground request statistics',
+      error: error.message
     });
   }
 };

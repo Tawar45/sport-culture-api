@@ -1,5 +1,7 @@
 const Court = require('../models/Court');
 const CourtSlot = require('../models/CourtSlot');
+const Ground = require('../models/Ground');
+const Games = require('../models/Games');
 const { Op } = require('sequelize');
 
 // Helper to flatten slotsPerDay to array of { day, slot }
@@ -14,7 +16,7 @@ function flattenSlots(slotsPerDay) {
 }
 
 exports.addCourt = async (req, res) => {
-  const { ground_id, name, openTime, closeTime, price, slotsPerDay } = req.body;
+  const { ground_id, name, games_id,openTime, closeTime, price, slotsPerDay } = req.body;
   try {
     // 1. Create court
     const court = await Court.create({
@@ -22,7 +24,8 @@ exports.addCourt = async (req, res) => {
       name,
       open_time: openTime,
       close_time: closeTime,
-      price
+      price,
+      games_id,
     });
     // 2. Create slots
     const slots = flattenSlots(slotsPerDay).map(s => ({ ...s, court_id: court.id }));
@@ -35,7 +38,7 @@ exports.addCourt = async (req, res) => {
 
 exports.updateCourt = async (req, res) => {
   const { id } = req.params;
-  const { ground_id, name, openTime, closeTime, price, slotsPerDay } = req.body;
+  const { ground_id, name,games_id, openTime, closeTime, price, slotsPerDay } = req.body;
   try {
     // 1. Update court
     const court = await Court.findByPk(id);
@@ -45,7 +48,8 @@ exports.updateCourt = async (req, res) => {
       name,
       open_time: openTime,
       close_time: closeTime,
-      price
+      price,
+      games_id
     });
     // 2. Delete old slots and add new
     await CourtSlot.destroy({ where: { court_id: id } });
@@ -59,7 +63,14 @@ exports.updateCourt = async (req, res) => {
 
 exports.listCourts = async (req, res) => {
   try {
-    const courts = await Court.findAll();
+    const courts = await Court.findAll({
+      include: [{
+        model: Ground,
+        as: 'ground',
+        attributes: ['id', 'name']
+      }]
+    });
+    
     // Optionally include slots
     const courtsWithSlots = await Promise.all(
       courts.map(async court => {
@@ -70,7 +81,13 @@ exports.listCourts = async (req, res) => {
           if (!slotsPerDay[s.day]) slotsPerDay[s.day] = [];
           slotsPerDay[s.day].push(s.slot);
         });
-        return { ...court.toJSON(), slotsPerDay };
+        
+        const courtData = court.toJSON();
+        return { 
+          ...courtData, 
+          slotsPerDay,
+          ground_name: courtData.ground ? courtData.ground.name : null
+        };
       })
     );
     res.json(courtsWithSlots);

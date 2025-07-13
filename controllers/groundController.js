@@ -1,8 +1,9 @@
-const Ground = require('../models/Ground'); // Adjust path as needed
+const { Ground, Games, Court, CourtSlot } = require('../models'); // Add CourtSlot to imports
 const upload = require('../config/multerConfig');
 const fs = require('fs');
 const path = require('path');
 const Joi = require('joi');
+const { Op } = require('sequelize'); // Add Op import for operators
 
 // Validation schema
 const groundSchema = Joi.object({
@@ -21,14 +22,9 @@ const groundSchema = Joi.object({
     .messages({
       'string.empty': 'City is required'
     }),
-  game: Joi.string().min(1).max(50).required().trim()
+  games: Joi.array().items(Joi.number().integer()).min(1).required()
     .messages({
-      'string.empty': 'Game is required'
-    }),
-  price: Joi.string().pattern(/^\d+(\.\d{1,2})?$/).required()
-    .messages({
-      'string.empty': 'Price is required',
-      'string.pattern.base': 'Price must be a valid number'
+        'any.required': 'Games selection is required'
     }),
   status: Joi.string().valid('active', 'inactive', 'maintenance').required()
     .messages({
@@ -67,18 +63,19 @@ exports.add = async (req, res) => {
     }
 
     // Destructure validated values
-    const { name, address, city, game, price, status, description, openTime, closeTime, vendor_id } = value;
+    const { name, address, city, games, status, description, openTime, closeTime, vendor_id } = value;
 
-    // Check if file was uploaded
-    if (!req.file) {
+    // Check if files were uploaded
+    if (!req.files || req.files.length === 0) {
       return res.status(400).json({
         success: false,
-        message: 'Ground image is required'
+        message: 'At least one ground image is required'
       });
     }
 
-    // Get the image path
-    const imagePath = `/uploads/ground/${req.file.filename}`;
+    // Get the image paths for multiple images
+    const imagePaths = req.files.map(file => `/uploads/ground/${file.filename}`);
+    const mainImagePath = imagePaths[0]; // First image as main image
 
     // Check for existing ground
     const existingGround = await Ground.findOne({ 
@@ -86,33 +83,43 @@ exports.add = async (req, res) => {
     });
 
     if (existingGround) {
-      // Delete uploaded file if ground already exists
-      const uploadedFilePath = path.join(process.cwd(), 'public', imagePath);
-      if (fs.existsSync(uploadedFilePath)) {
-        fs.unlinkSync(uploadedFilePath);
-      }
+      // Delete uploaded files if ground already exists
+      req.files.forEach(file => {
+        const uploadedFilePath = path.join(process.cwd(), 'public', `/uploads/ground/${file.filename}`);
+        if (fs.existsSync(uploadedFilePath)) {
+          fs.unlinkSync(uploadedFilePath);
+        }
+      });
       return res.status(400).json({
         success: false,
         message: 'Ground already exists'
       });
     }
 
-    // Create new ground with all fields
+    // Validate games array
+    if (!games || !Array.isArray(games) || games.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'At least one game must be selected'
+      });
+    }
+
+    // Create new ground with all fields including multiple images and games
     const newGround = await Ground.create({
       name,
       address,
       city,
-      game,
-      price,
+      games: games, // Store multiple games
       status,
       description,
       openTime,
       closeTime,
-      image: imagePath,
+      image: mainImagePath, // Keep main image for backward compatibility
+      images: imagePaths, // Store all image paths
       vendor_id
     });
 
-    // Return success response
+    // Return success response with all images and games
     return res.status(201).json({
       success: true,
       message: 'Ground added successfully',
@@ -121,20 +128,22 @@ exports.add = async (req, res) => {
         name: newGround.name,
         address: newGround.address,
         city: newGround.city,
-        game: newGround.game,
-        price: newGround.price,
+        games: newGround.games, // Multiple games
         status: newGround.status,
         description: newGround.description,
         openTime: newGround.openTime,
         closeTime: newGround.closeTime,
         image: newGround.image,
         imageUrl: `${req.protocol}://${req.get('host')}${newGround.image}`,
+        images: newGround.images,
+        imageUrls: newGround.images.map(img => `${req.protocol}://${req.get('host')}${img}`),
         vendor_id: newGround.vendor_id,
         createdAt: newGround.createdAt
       }
     });
 
   } catch (error) {
+    console.log(error,'checking');
     console.error('Error adding ground:', error);
     return res.status(500).json({
       success: false,
@@ -148,27 +157,82 @@ exports.list = async (req, res) => {
   try {
     const { id } = req.params;
     const grounds = await Ground.findAll({
-      attributes: ['id', 'name', 'address', 'city', 'game', 'price', 'status', 'description', 'openTime', 'closeTime', 'image'],
+      attributes: ['id', 'name', 'address', 'city', 'games', 'status', 'description', 'openTime', 'closeTime', 'image', 'images'],
+      include: [
+        {
+          model: Games,
+          as: 'gameData',
+          attributes: ['id', 'name'],
+          required: false
+        }
+      ],
       order: [['id', 'ASC']],
       where: id ? { vendor_id: id } : {}
     });
 
-    // Map grounds to include full image URLs
-    const groundsWithUrls = grounds.map(ground => ({
-      id: ground.id,
-      name: ground.name,
-      address: ground.address,
-      city: ground.city,
-      game: ground.game,
-      price: ground.price,
-      status: ground.status,
-      description: ground.description,
-      openTime: ground.openTime,
-      closeTime: ground.closeTime,
-      image: ground.image,
-      imageUrl: `${req.protocol}://${req.get('host')}${ground.image}`,
-      vendor_id: ground.vendor_id
-    }));
+    // Get all games for reference
+    const allGames = await Games.findAll({
+      attributes: ['id', 'name'],
+      order: [['name', 'ASC']]
+    });
+
+    // Map grounds to include full image URLs and game data
+    const groundsWithUrls = grounds.map(ground => {
+      // Safely parse images array
+      let imagesArray = [];
+      try {
+        if (ground.images) {
+          // If it's a string, parse it as JSON
+          if (typeof ground.images === 'string') {
+            imagesArray = JSON.parse(ground.images);
+          } else if (Array.isArray(ground.images)) {
+            imagesArray = ground.images;
+          }
+        }
+      } catch (error) {
+        console.error('Error parsing images for ground:', ground.id, error);
+        imagesArray = [];
+      }
+
+      // Parse games array
+      let gamesArray = [];
+      try {
+        if (ground.games) {
+          if (typeof ground.games === 'string') {
+            gamesArray = JSON.parse(ground.games);
+          } else if (Array.isArray(ground.games)) {
+            gamesArray = ground.games;
+          }
+        }
+      } catch (error) {
+        console.error('Error parsing games for ground:', ground.id, error);
+        gamesArray = [];
+      }
+
+      // Get game names for all games
+      const gameNames = gamesArray.map(gameId => {
+        const game = allGames.find(g => g.id === gameId);
+        return game ? game.name : `Game ID ${gameId}`;
+      });
+
+      return {
+        id: ground.id,
+        name: ground.name,
+        address: ground.address,
+        city: ground.city,
+        games: gamesArray, // Multiple games
+        gameNames: gameNames, // Array of game names
+        status: ground.status,
+        description: ground.description,
+        openTime: ground.openTime,
+        closeTime: ground.closeTime,
+        image: ground.image,
+        imageUrl: ground.image ? `${req.protocol}://${req.get('host')}${ground.image}` : null,
+        images: imagesArray,
+        imageUrls: imagesArray.map(img => `${req.protocol}://${req.get('host')}${img}`),
+        vendor_id: ground.vendor_id
+      };
+    });
 
     res.status(200).json({
       success: true,
@@ -184,9 +248,112 @@ exports.list = async (req, res) => {
   }
 };
 
+exports.getGround = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const ground = await Ground.findByPk(id);
+    
+    if (!ground) {
+      return res.status(404).json({
+        success: false,
+        message: 'Ground not found'
+      });
+    }
+
+    // Get all games for reference
+    const allGames = await Games.findAll({
+      attributes: ['id', 'name'],
+      order: [['name', 'ASC']]
+    });
+
+    // Safely parse images array
+    let imagesArray = [];
+    try {
+      if (ground.images) {
+        // If it's a string, parse it as JSON
+        if (typeof ground.images === 'string') {
+          imagesArray = JSON.parse(ground.images);
+        } else if (Array.isArray(ground.images)) {
+          imagesArray = ground.images;
+        }
+      }
+    } catch (error) {
+      console.error('Error parsing images for ground:', ground.id, error);
+      imagesArray = [];
+    }
+
+    // Parse games array
+    let gamesArray = [];
+    try {
+      if (ground.games) {
+        if (typeof ground.games === 'string') {
+          gamesArray = JSON.parse(ground.games);
+        } else if (Array.isArray(ground.games)) {
+          gamesArray = ground.games;
+        }
+      }
+    } catch (error) {
+      console.error('Error parsing games for ground:', ground.id, error);
+      gamesArray = [];
+    }
+
+    // Get game names for all games
+    const gameNames = gamesArray.map(gameId => {
+      const game = allGames.find(g => g.id === gameId);
+      return game ? game.name : `Game ID ${gameId}`;
+    });
+
+    // Include full image URLs for all images and game data
+    const groundWithUrl = {
+      id: ground.id,
+      name: ground.name,
+      address: ground.address,
+      city: ground.city,
+      games: gamesArray, // Multiple games
+      gameNames: gameNames, // Array of game names
+      status: ground.status,
+      description: ground.description,
+      openTime: ground.openTime,
+      closeTime: ground.closeTime,
+      image: ground.image,
+      imageUrl: ground.image ? `${req.protocol}://${req.get('host')}${ground.image}` : null,
+      images: imagesArray,
+      imageUrls: imagesArray.map(img => `${req.protocol}://${req.get('host')}${img}`),
+      vendor_id: ground.vendor_id,
+      createdAt: ground.createdAt,
+      updatedAt: ground.updatedAt
+    };
+
+    res.status(200).json({
+      success: true,
+      message: 'Ground fetched successfully',
+      ground: groundWithUrl
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch ground',
+      error: error.message,
+    });
+  }
+};
+
 exports.update = async (req, res) => {
   try {
     const { id } = req.params;
+
+    // Parse games array if it's sent as JSON string
+    if (req.body.games && typeof req.body.games === 'string') {
+      try {
+        req.body.games = JSON.parse(req.body.games);
+      } catch (error) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid games array format'
+        });
+      }
+    }
 
     // Validate request body
     const { error, value } = groundSchema.validate(req.body, { abortEarly: false });
@@ -198,8 +365,8 @@ exports.update = async (req, res) => {
       });
     }
 
-    // Destructure validated values
-    const { name, address, city, game, price, status, description, openTime, closeTime, vendor_id } = value;
+    // Destructure validated values (removed game field)
+    const { name, address, city, games, status, description, openTime, closeTime, vendor_id } = value;
 
     // Find ground
     const ground = await Ground.findByPk(id);
@@ -232,6 +399,14 @@ exports.update = async (req, res) => {
       });
     }
 
+    // Validate games array
+    if (!games || !Array.isArray(games) || games.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'At least one game must be selected'
+      });
+    }
+
     // Handle image update
     let imagePath = ground.image;
     if (req.file) {
@@ -242,12 +417,12 @@ exports.update = async (req, res) => {
       }
       imagePath = `/uploads/ground/${req.file.filename}`;
     }
-    // Update ground with all fields
+    
+    // Update ground with games array
     ground.name = name;
     ground.address = address;
     ground.city = city;
-    ground.game = game;
-    ground.price = price;
+    ground.games = games; // Update multiple games
     ground.status = status;
     ground.description = description;
     ground.openTime = openTime;
@@ -265,8 +440,7 @@ exports.update = async (req, res) => {
         name: ground.name,
         address: ground.address,
         city: ground.city,
-        game: ground.game,
-        price: ground.price,
+        games: ground.games, // Multiple games
         status: ground.status,
         description: ground.description,
         openTime: ground.openTime,
@@ -330,4 +504,162 @@ exports.remove = async (req, res) => {
     });
   }
 };
+
+exports.getGroundGames = async (req, res) => {
+  const { id } = req.params;
+  console.log(id, 'ground');
+  
+  try {
+    // Get the ground with its games IDs
+    const ground = await Ground.findByPk(id);
+    
+    if (!ground) {
+      return res.status(404).json({ message: 'Ground not found' });
+    }
+    
+    // Get the games IDs from the ground and ensure it's an array
+    let gameIds = [];
+    try {
+      if (ground.games) {
+        // If it's a string, parse it as JSON
+        if (typeof ground.games === 'string') {
+          gameIds = JSON.parse(ground.games);
+        } else if (Array.isArray(ground.games)) {
+          gameIds = ground.games;
+        } else {
+          gameIds = [];
+        }
+      }
+    } catch (error) {
+      console.error('Error parsing games for ground:', groundId, error);
+      gameIds = [];
+    }
+    
+    console.log(gameIds, 'game IDs from ground');
+    
+    // Count how many game IDs there are
+    const gameCount = gameIds.length;
+    
+    // Get the actual game details if there are game IDs
+    let games = [];
+    if (gameCount > 0) {
+      games = await Games.findAll({
+        where: {
+          id: {
+            [Op.in]: gameIds
+          }
+        },
+        attributes: ['id', 'name', 'image']
+      });
+    }
+    
+    res.json({
+      ground_id: parseInt(id),
+      game_ids: gameIds,
+      game_count: gameCount,
+      games: games
+    });
+    
+  } catch (err) {
+    console.log(err, "ground not found");
+    res.status(500).json({ message: err.message });
+  }
+}; 
+
+exports.getGroundCourts = async (req, res) => {
+  const { groundId } = req.params;
+  
+  try {
+    // First check if ground exists
+    const ground = await Ground.findByPk(groundId);
+    
+    if (!ground) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Ground not found' 
+      });
+    }
+    
+    // Get all courts for this ground
+    const courts = await Court.findAll({
+      where: {
+        ground_id: groundId
+      },
+      include: [{
+        model: Ground,
+        as: 'ground',
+        attributes: ['id', 'name']
+      }],
+      order: [['name', 'ASC']]
+    });
+    
+    // Get detailed slots for each court
+    const courtsWithDetailedSlots = await Promise.all(
+      courts.map(async court => {
+        // Get all CourtSlot records for this court
+        const slots = await CourtSlot.findAll({ 
+          where: { court_id: court.id },
+          order: [['day', 'ASC'], ['slot', 'ASC']] // Order by day then by slot time
+        });
+        
+        // Group slots by day with detailed information
+        const slotsPerDay = {};
+        const allSlots = [];
+        
+        slots.forEach(slot => {
+          // Add to grouped slots
+          if (!slotsPerDay[slot.day]) {
+            slotsPerDay[slot.day] = [];
+          }
+          slotsPerDay[slot.day].push({
+            id: slot.id,
+            slot: slot.slot,
+            day: slot.day,
+            court_id: slot.court_id
+          });
+                  });
+        
+        const courtData = court.toJSON();
+        return {
+          ...courtData,
+          slotsPerDay,
+        
+        };
+      })
+    );
+    
+    // Calculate total slots across all courts
+    const totalSlots = courtsWithDetailedSlots.reduce((total, court) => {
+      return total + court.slot_count;
+    }, 0);
+    
+    res.json({
+      success: true,
+      message: 'Courts and slots fetched successfully',
+      ground: {
+        id: ground.id,
+        name: ground.name,
+        address: ground.address,
+        city: ground.city
+      },
+      courts: courtsWithDetailedSlots,
+      court_count: courtsWithDetailedSlots.length,
+      total_slots: totalSlots,
+      // summary: {
+      //   total_courts: courtsWithDetailedSlots.length,
+      //   total_slots: totalSlots,
+      //   courts_with_slots: courtsWithDetailedSlots.filter(court => court.slot_count > 0).length
+      // }
+    });
+    
+  } catch (err) {
+    console.error('Error fetching ground courts:', err);
+    res.status(500).json({ 
+      success: false,
+      message: err.message 
+    });
+  }
+}; 
+
+
 

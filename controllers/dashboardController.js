@@ -1,5 +1,10 @@
 const User = require('../models/User');
-const { sequelize } = require('../models/User');
+const Ground = require('../models/Ground');
+const Court = require('../models/Court');
+const Games = require('../models/Games');
+const City = require('../models/City');
+const Booking = require('../models/Booking');
+const { Op } = require('sequelize');
 
 exports.getStats = async (req, res) => {
   try {
@@ -13,31 +18,40 @@ exports.getStats = async (req, res) => {
     // Get total active vendors
     const vendorCount = await User.count({
       where: {
-        usertype: 'vendor',
-        status: true
+        usertype: 'vendor'
       }
     });
 
-    // Get unique cities count
-    const citiesCount = await User.count({
-      distinct: true,
-      col: 'city',
+    // Get total cities count from City model
+    const citiesCount = await City.count();
+
+    // Get total grounds count
+    const groundsCount = await Ground.count({
       where: {
-        city: {
-          [sequelize.Op.ne]: null
-        }
+        status: 'active'
       }
     });
 
-    // Get total bookings (you'll need to adjust this based on your booking model)
-    // For now returning a placeholder
-    const bookingsCount = 0; // TODO: Implement actual booking count
+    // Get total courts count
+    const courtsCount = await Court.count();
+
+    // Get total games count
+    const gamesCount = await Games.count();
+
+    // Get total bookings count
+    const bookingsCount = await Booking.count();
 
     res.status(200).json({
-      users: userCount,
-      vendors: vendorCount,
-      cities: citiesCount,
-      bookings: bookingsCount
+      success: true,
+      data: {
+        users: userCount,
+        vendors: vendorCount,
+        cities: citiesCount,
+        bookings: bookingsCount,
+        grounds: groundsCount,
+        courts: courtsCount,
+        games: gamesCount
+      }
     });
 
   } catch (error) {
