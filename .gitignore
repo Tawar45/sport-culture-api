@@ -1,0 +1,28 @@
+# Node modules
+node_modules/
+# Logs
+logs/
+*.log
+
+# OS junk
+.DS_Store
+Thumbs.db
+# Environment files
+.env
+# Build output
+dist/
+build/
+out/
+public/
+
+# Dependency directories
+.pnp/
+.pnp.js
+
+# Git files
+.git/
+
+# IDE/editor settings
+.vscode/
+.idea/
+*.swp

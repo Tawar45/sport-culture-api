@@ -1,0 +1,19 @@
+const express = require('express');
+const router = express.Router();
+const authController = require('../controllers/authController');
+const cityController = require('../controllers/cityController');
+const authMiddleware = require('../middleware/authMiddleware');
+
+router.post('/register', authController.register);
+router.post('/login', authController.login);
+// router.post('/city', cityController.add);
+
+router.post('/hass-password', authController.generateHashPassword);
+
+// Password change route (requires authentication)
+router.post('/change-password', authMiddleware, authController.changePassword);
+
+// Get user profile (requires authentication)
+router.get('/profile', authMiddleware, authController.getProfile);
+
+module.exports = router; 
