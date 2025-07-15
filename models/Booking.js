@@ -20,6 +20,8 @@ const Booking = sequelize.define('Booking', {
   is_cash_collected: { type: DataTypes.BOOLEAN, defaultValue: false },
   cash_collected_by: { type: DataTypes.INTEGER, allowNull: true },
   cash_collected_at: { type: DataTypes.DATE, allowNull: true },
+  admin_cash_received: { type: DataTypes.BOOLEAN, defaultValue: false },
+  admin_cash_received_at: { type: DataTypes.DATE, allowNull: true },
 });
 
 Booking.associate = (models) => {

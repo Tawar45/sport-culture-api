@@ -8,6 +8,13 @@ router.post('/add', bookingController.createBooking);
 
 router.get('/list', bookingController.listBookings);
 
+router.get('/cash-collection/summary', bookingController.getCashCollectionSummary);
+router.post('/cash-collection/:id/received', bookingController.markAdminCashReceived);
+
+router.get('/onlinePayment', bookingController.getOnlinePaymentSettlement);
+router.post('/online-settlement/:id/received', bookingController.markOnlineSettlementReceived);
+
+
 // Update a booking
 router.put('/:id', bookingController.updateBooking);
 
@@ -25,5 +32,7 @@ router.get('/:id', bookingController.getBooking);
 
 // Count bookings per ground/game
 router.get('/count', bookingController.countBookings);
+
+// Cash collection summary and admin receive endpoints
 
 module.exports = router; 
