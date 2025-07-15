@@ -593,7 +593,7 @@ exports.getGroundCourts = async (req, res) => {
       order: [['name', 'ASC']]
     });
     
-    // Get detailed slots for each court
+    // Get detailed slots for each court and include game data
     const courtsWithDetailedSlots = await Promise.all(
       courts.map(async court => {
         // Get all CourtSlot records for this court
@@ -604,10 +604,7 @@ exports.getGroundCourts = async (req, res) => {
         
         // Group slots by day with detailed information
         const slotsPerDay = {};
-        const allSlots = [];
-        
         slots.forEach(slot => {
-          // Add to grouped slots
           if (!slotsPerDay[slot.day]) {
             slotsPerDay[slot.day] = [];
           }
@@ -617,20 +614,29 @@ exports.getGroundCourts = async (req, res) => {
             day: slot.day,
             court_id: slot.court_id
           });
-                  });
-        
+        });
+
+        // Fetch game data for this court
+        let gameData = null;
+        if (court.games_id) {
+          gameData = await Games.findOne({
+            where: { id: court.games_id },
+            attributes: ['id', 'name', 'image']
+          });
+        }
+
         const courtData = court.toJSON();
         return {
           ...courtData,
           slotsPerDay,
-        
+          game: gameData
         };
       })
     );
     
     // Calculate total slots across all courts
     const totalSlots = courtsWithDetailedSlots.reduce((total, court) => {
-      return total + court.slot_count;
+      return total + (court.slot_count || 0);
     }, 0);
     
     res.json({
@@ -645,11 +651,6 @@ exports.getGroundCourts = async (req, res) => {
       courts: courtsWithDetailedSlots,
       court_count: courtsWithDetailedSlots.length,
       total_slots: totalSlots,
-      // summary: {
-      //   total_courts: courtsWithDetailedSlots.length,
-      //   total_slots: totalSlots,
-      //   courts_with_slots: courtsWithDetailedSlots.filter(court => court.slot_count > 0).length
-      // }
     });
     
   } catch (err) {

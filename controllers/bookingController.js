@@ -4,11 +4,11 @@ const Booking = require('../models/Booking');
 exports.createBooking = async (req, res) => {
   try {
     const {
-      user_id, ground_id, game_id, booking_date, slot, booking_type,
+      user_id, ground_id, game_id, court_id, booking_date, slot, booking_type,
       payment_status, payment_method, payment_reference, amount, status
     } = req.body;
     const booking = await Booking.create({
-      user_id, ground_id, game_id, booking_date, slot, booking_type,
+      user_id, ground_id, game_id, court_id,booking_date, slot, booking_type,
       payment_status, payment_method, payment_reference, amount, status
     });
     res.status(201).json({ 
