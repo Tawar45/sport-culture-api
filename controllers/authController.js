@@ -11,8 +11,6 @@ const upload = require('../config/multerConfig');
 
 exports.register = async (req, res) => {
   try {
-    console.log('Received registration data:', req.body);
-
     // Validation schema without profile_image requirement
     const schema = Joi.object({
       username: Joi.string()
@@ -133,6 +131,43 @@ exports.login = async (req, res) => {
       return res.status(400).json({ message: 'User is not active' });
     } else if(user.usertype === 'user'){
       return res.status(400).json({ message: 'User cannot login' });
+    } else {
+    const token = generateToken({ 
+      id: user.id, 
+      email: user.email,
+      username: user.username,
+      usertype: user.usertype
+    });
+    res.json({ message: 'Login successfully', token, 
+      user: {
+      email: user.email,
+      username: user.username,
+      usertype: user.usertype,
+      status: user.status,
+      id: user.id,
+      phone_number: user.phone_number,
+      profile_image: user.profile_image ? `${req.protocol}://${req.get('host')}${user.profile_image}`: '',
+      }, 
+     });
+    }
+  } catch (error) {
+    res.status(500).json({ message: 'Login failed', error: error.message });
+  }
+};
+
+exports.userLogin = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    const user = await User.findOne({ where: { email } });
+    if (!user) {
+      return res.status(400).json({ message: 'Invalid email or password' });
+    }
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Invalid email or password' });
+    }
+    if (user.status === false) {
+      return res.status(400).json({ message: 'User is not active' });
     } else {
     const token = generateToken({ 
       id: user.id, 

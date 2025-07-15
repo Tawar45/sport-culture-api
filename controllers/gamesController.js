@@ -5,7 +5,7 @@ const path = require('path');
 
 exports.add = async (req, res) => {
   try {
-    const { name } = req.body;
+    const { name ,description  } = req.body;
     
     // Check if name exists
     if (!name) {
@@ -41,6 +41,7 @@ exports.add = async (req, res) => {
     // Create new game with image path
     const newGame = await Games.create({
       name: name,
+      description: description,
       image: imagePath // Save the path to the database
     });
 
@@ -51,6 +52,7 @@ exports.add = async (req, res) => {
       data: {
         id: newGame.id,
         name: newGame.name,
+        description:newGame.description,
         image: newGame.image,
         imageUrl: `${req.protocol}://${req.get('host')}${newGame.image}`,
         createdAt: newGame.createdAt
@@ -70,7 +72,7 @@ exports.add = async (req, res) => {
 exports.list = async (req, res) => {
   try {
     const games = await Games.findAll({
-      attributes: ['id', 'name', 'image'], // only return necessary fields
+      attributes: ['id', 'name', 'image','description'], // only return necessary fields
       order: [['id', 'ASC']],   // optional: sort by game name
     });
 
@@ -78,6 +80,7 @@ exports.list = async (req, res) => {
     const gamesWithUrls = games.map(game => ({
       id: game.id,
       name: game.name,
+      description:game.description,
       image: game.image,
       imageUrl: `${req.protocol}://${req.get('host')}${game.image}`
     }));
@@ -99,7 +102,7 @@ exports.list = async (req, res) => {
 exports.update = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name } = req.body;
+    const { name ,description } = req.body;
 
     // Validate name
     if (!name) {
@@ -142,6 +145,7 @@ exports.update = async (req, res) => {
 
     // Update game
     game.name = name;
+    game.description = description;
     game.image = imagePath;
     await game.save();
 
@@ -152,6 +156,7 @@ exports.update = async (req, res) => {
       data: {
         id: game.id,
         name: game.name,
+        description:game.description,
         image: game.image,
         imageUrl: `${req.protocol}://${req.get('host')}${game.image}`
       }
