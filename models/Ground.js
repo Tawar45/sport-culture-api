@@ -20,7 +20,7 @@ const Ground = sequelize.define('Ground', {
     allowNull: false,
   },
   games: {
-    type: DataTypes.JSON, // New field for multiple games
+    type: DataTypes.STRING(50), // New field for multiple games
     allowNull: true,
     defaultValue: [],
   },
