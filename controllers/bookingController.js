@@ -132,8 +132,26 @@ exports.getBooking = async (req, res) => {
 // List all bookings
 exports.listBookings = async (req, res) => {
   try {
+    const { Ground, Games, Court } = require('../models');
     const bookings = await Booking.findAll({
-      order: [['created_at', 'DESC']]
+      order: [['createdAt', 'DESC']],
+      include: [
+        {
+          model: Ground,
+          as: 'ground',
+          attributes: ['id', 'name']
+        },
+        {
+          model: Games,
+          as: 'game',
+          attributes: ['id', 'name']
+        },
+        {
+          model: Court,
+          as: 'court',
+          attributes: ['id', 'name']
+        }
+      ]
     });
     res.json({
       success: true,

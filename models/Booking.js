@@ -14,11 +14,27 @@ const Booking = sequelize.define('Booking', {
   payment_reference: { type: DataTypes.STRING(100), allowNull: true }, // transaction id or receipt
   amount: { type: DataTypes.DECIMAL(10,2), allowNull: false },
   status: { type: DataTypes.STRING(20), defaultValue: 'pending' }, // e.g. 'pending', 'confirmed', 'cancelled'
-}, {
-  tableName: 'bookings',
-  timestamps: true,
-  createdAt: 'created_at',
-  updatedAt: 'updated_at',
+  guest_name: { type: DataTypes.STRING(100), allowNull: true },
+  guest_email: { type: DataTypes.STRING(100), allowNull: true },
+  guest_phone: { type: DataTypes.STRING(20), allowNull: true },
+  is_cash_collected: { type: DataTypes.BOOLEAN, defaultValue: false },
+  cash_collected_by: { type: DataTypes.INTEGER, allowNull: true },
+  cash_collected_at: { type: DataTypes.DATE, allowNull: true },
 });
+
+Booking.associate = (models) => {
+  Booking.belongsTo(models.Ground, {
+    foreignKey: 'ground_id',
+    as: 'ground',
+  });
+  Booking.belongsTo(models.Games, {
+    foreignKey: 'game_id',
+    as: 'game',
+  });
+  Booking.belongsTo(models.Court, {
+    foreignKey: 'court_id',
+    as: 'court',
+  });
+};
 
 module.exports = Booking; 

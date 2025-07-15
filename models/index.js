@@ -2,6 +2,7 @@ const Ground = require('./Ground');
 const Games = require('./Games');
 const Court = require('./Court');
 const CourtSlot = require('./CourtSlot');
+const Booking = require('./Booking');
 
 // Set up associations
 Ground.belongsTo(Games, {
@@ -42,9 +43,15 @@ CourtSlot.belongsTo(Court, {
   as: 'court'
 });
 
+// Register Booking associations
+if (typeof Booking.associate === 'function') {
+  Booking.associate({ Ground, Games, Court });
+}
+
 module.exports = {
   Ground,
   Games,
   Court,
-  CourtSlot
+  CourtSlot,
+  Booking
 }; 

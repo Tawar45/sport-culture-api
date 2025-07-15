@@ -5,6 +5,9 @@ const bookingController = require('../controllers/bookingController');
 // Create a new booking
 router.post('/add', bookingController.createBooking);
 
+
+router.get('/list', bookingController.listBookings);
+
 // Update a booking
 router.put('/:id', bookingController.updateBooking);
 
@@ -18,7 +21,7 @@ router.put('/payment/:id', bookingController.updatePayment);
 router.get('/:id', bookingController.getBooking);
 
 // List all bookings
-router.get('/list', bookingController.listBookings);
+
 
 // Count bookings per ground/game
 router.get('/count', bookingController.countBookings);

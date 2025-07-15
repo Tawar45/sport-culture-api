@@ -9,7 +9,7 @@ router.get('/list/:id', groundController.list);
 router.get('/list', groundController.list);
 router.get('/get/:id', groundController.getGround);
 router.delete('/remove/:id', groundController.remove);
-router.get('/games/:groundId', groundController.getGroundGames);
+router.get('/games/:id', groundController.getGroundGames);
 router.get('/courts/:groundId', groundController.getGroundCourts); // Add this new route
 
 module.exports = router; 
