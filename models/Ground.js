@@ -19,14 +19,9 @@ const Ground = sequelize.define('Ground', {
     type: DataTypes.STRING(50),
     allowNull: false,
   },
-  games: {
-    type: DataTypes.STRING(50), // New field for multiple games
-    allowNull: true,
-    defaultValue: [],
-  },
   status: {
-    type: DataTypes.STRING(20),
-    defaultValue: 'active',
+    type: DataTypes.STRING(30),
+    defaultValue: '',
   },
   description: {
     type: DataTypes.TEXT,
@@ -53,17 +48,21 @@ const Ground = sequelize.define('Ground', {
     type: DataTypes.INTEGER,
     allowNull: false,
   },
+  games_ids: {
+    type: DataTypes.JSON, // MySQL 5.7+ supports JSON
+    allowNull: true,
+  },
 }, {
-  tableName: 'grounds',
+  tableName: 'Grounds',
 });
 
-// Define association with Games model
-Ground.associate = (models) => {
-  Ground.belongsTo(models.Games, {
-    foreignKey: 'games',
-    targetKey: 'id',
-    as: 'gameData'
-  });
-};
+// // Define association with Games model
+// Ground.associate = (models) => {
+//   Ground.belongsTo(models.Games, {
+//     foreignKey: 'games',
+//     targetKey: 'id',
+//     as: 'gameData'
+//   });
+// };
 
 module.exports = Ground; 

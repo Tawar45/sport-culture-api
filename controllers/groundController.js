@@ -1,9 +1,10 @@
-const { Ground, Games, Court, CourtSlot } = require('../models'); // Add CourtSlot to imports
+const { Ground, Court, CourtSlot } = require('../models'); // Add CourtSlot to imports
 const upload = require('../config/multerConfig');
 const fs = require('fs');
 const path = require('path');
 const Joi = require('joi');
 const { Op } = require('sequelize'); // Add Op import for operators
+const Games = require('../models/Games');
 
 // Validation schema
 const groundSchema = Joi.object({
@@ -109,7 +110,7 @@ exports.add = async (req, res) => {
       name,
       address,
       city,
-      games: games, // Store multiple games
+      games_ids: games, // Store multiple games
       status,
       description,
       openTime,
@@ -128,7 +129,7 @@ exports.add = async (req, res) => {
         name: newGround.name,
         address: newGround.address,
         city: newGround.city,
-        games: newGround.games, // Multiple games
+        games_ids: newGround.games_ids, // Multiple games
         status: newGround.status,
         description: newGround.description,
         openTime: newGround.openTime,
@@ -157,28 +158,14 @@ exports.list = async (req, res) => {
   try {
     const { id } = req.params;
     const grounds = await Ground.findAll({
-      attributes: ['id', 'name', 'address', 'city', 'games', 'status', 'description', 'openTime', 'closeTime', 'image', 'images'],
-      include: [
-        {
-          model: Games,
-          as: 'gameData',
-          attributes: ['id', 'name'],
-          required: false
-        }
-      ],
+      attributes: ['id', 'name', 'address', 'city', 'games_ids', 'status', 'description', 'openTime', 'closeTime', 'image', 'images'],
       order: [['id', 'ASC']],
       where: id ? { vendor_id: id } : {}
     });
 
-    // Get all games for reference
-    const allGames = await Games.findAll({
-      attributes: ['id', 'name'],
-      order: [['name', 'ASC']]
-    });
-
-    // Map grounds to include full image URLs and game data
-    const groundsWithUrls = grounds.map(ground => {
+    const groundsWithUrls = await Promise.all(grounds.map(async ground => {
       // Safely parse images array
+
       let imagesArray = [];
       try {
         if (ground.images) {
@@ -194,34 +181,36 @@ exports.list = async (req, res) => {
         imagesArray = [];
       }
 
-      // Parse games array
+      // Parse games_ids array
       let gamesArray = [];
       try {
-        if (ground.games) {
-          if (typeof ground.games === 'string') {
-            gamesArray = JSON.parse(ground.games);
-          } else if (Array.isArray(ground.games)) {
-            gamesArray = ground.games;
+        if (ground.games_ids) {
+          if (typeof ground.games_ids === 'string') {
+            gamesArray = JSON.parse(ground.games_ids);
+          } else if (Array.isArray(ground.games_ids)) {
+            gamesArray = ground.games_ids;
           }
         }
       } catch (error) {
-        console.error('Error parsing games for ground:', ground.id, error);
         gamesArray = [];
       }
 
-      // Get game names for all games
-      const gameNames = gamesArray.map(gameId => {
-        const game = allGames.find(g => g.id === gameId);
-        return game ? game.name : `Game ID ${gameId}`;
-      });
-
+      // Fetch games data for these IDs
+      let gamesData = [];
+      if (gamesArray.length > 0) {
+        gamesData = await Games.findAll({
+          where: { id: { [Op.in]: gamesArray } },
+          attributes: ['id', 'name', 'image']
+        });
+      }
+  
       return {
         id: ground.id,
         name: ground.name,
         address: ground.address,
         city: ground.city,
         games: gamesArray, // Multiple games
-        gameNames: gameNames, // Array of game names
+        gameNames: gamesData, // Array of game names
         status: ground.status,
         description: ground.description,
         openTime: ground.openTime,
@@ -232,7 +221,7 @@ exports.list = async (req, res) => {
         imageUrls: imagesArray.map(img => `${req.protocol}://${req.get('host')}${img}`),
         vendor_id: ground.vendor_id
       };
-    });
+    }));
 
     res.status(200).json({
       success: true,
@@ -520,12 +509,12 @@ exports.getGroundGames = async (req, res) => {
     // Get the games IDs from the ground and ensure it's an array
     let gameIds = [];
     try {
-      if (ground.games) {
+      if (ground.games_ids) {
         // If it's a string, parse it as JSON
-        if (typeof ground.games === 'string') {
-          gameIds = JSON.parse(ground.games);
-        } else if (Array.isArray(ground.games)) {
-          gameIds = ground.games;
+        if (typeof ground.games_ids === 'string') {
+          gameIds = JSON.parse(ground.games_ids);
+        } else if (Array.isArray(ground.games_ids)) {
+          gameIds = ground.games_ids;
         } else {
           gameIds = [];
         }

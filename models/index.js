@@ -5,17 +5,17 @@ const CourtSlot = require('./CourtSlot');
 const Booking = require('./Booking');
 
 // Set up associations
-Ground.belongsTo(Games, {
-  foreignKey: 'games',
-  targetKey: 'id',
-  as: 'gameData'
-});
+// Ground.belongsTo(Games, {
+//   foreignKey: 'games_id',
+//   targetKey: 'id',
+//   as: 'gameData'
+// });
 
-Games.hasMany(Ground, {
-  foreignKey: 'games',
-  sourceKey: 'id',
-  as: 'grounds'
-});
+// Games.hasMany(Ground, {
+//   foreignKey: 'games_id',
+//   sourceKey: 'id',
+//   as: 'grounds'
+// });
 
 // Add Court-Ground association
 Court.belongsTo(Ground, {
