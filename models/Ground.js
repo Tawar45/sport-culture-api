@@ -52,6 +52,10 @@ const Ground = sequelize.define('Ground', {
     type: DataTypes.JSON, // MySQL 5.7+ supports JSON
     allowNull: true,
   },
+  amenities_ids: {
+    type: DataTypes.JSON, // MySQL 5.7+ supports JSON
+    allowNull: true,
+  },
 }, {
   tableName: 'Grounds',
 });

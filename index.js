@@ -4,6 +4,7 @@ const authRoutes = require('./routes/auth');
 const sequelize = require('./database/db');
 const corsMiddleware = require('./middleware/cors'); // ← Import your CORS config
 const cityRoutes = require('./routes/city');
+
 const gamesRoutes = require('./routes/games');
 const groundRoutes = require('./routes/ground');
 const groundRequestRoutes = require('./routes/groundRequest');
@@ -11,6 +12,7 @@ const userRoutes = require('./routes/users');
 const courtRoutes = require('./routes/court');
 const bookingRoutes = require('./routes/booking');
 const dashboardRoutes = require('./routes/dashboard');
+const amenitiesRoutes = require('./routes/amenities');
 const path = require('path');
 
 app.use(corsMiddleware); // ← Use it before routes
@@ -28,6 +30,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/court', courtRoutes);
 app.use('/api/booking', bookingRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/amenities',amenitiesRoutes)
 
 sequelize.authenticate()
   .then(() => {

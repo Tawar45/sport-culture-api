@@ -5,6 +5,7 @@ const path = require('path');
 const Joi = require('joi');
 const { Op } = require('sequelize'); // Add Op import for operators
 const Games = require('../models/Games');
+const Amenities = require('../models/Amenities');
 
 // Validation schema
 const groundSchema = Joi.object({
@@ -26,6 +27,10 @@ const groundSchema = Joi.object({
   games: Joi.array().items(Joi.number().integer()).min(1).required()
     .messages({
         'any.required': 'Games selection is required'
+    }),
+  amenities: Joi.array().items(Joi.number().integer()).min(1).required()
+    .messages({
+        'any.required': 'Amenities selection is required'
     }),
   status: Joi.string().valid('active', 'inactive', 'maintenance').required()
     .messages({
@@ -64,7 +69,7 @@ exports.add = async (req, res) => {
     }
 
     // Destructure validated values
-    const { name, address, city, games, status, description, openTime, closeTime, vendor_id } = value;
+    const { name, address, city, games, amenities, status, description, openTime, closeTime, vendor_id } = value;
 
     // Check if files were uploaded
     if (!req.files || req.files.length === 0) {
@@ -111,6 +116,7 @@ exports.add = async (req, res) => {
       address,
       city,
       games_ids: games, // Store multiple games
+      amenities_ids: amenities, // Store multiple amenities
       status,
       description,
       openTime,
@@ -130,6 +136,7 @@ exports.add = async (req, res) => {
         address: newGround.address,
         city: newGround.city,
         games_ids: newGround.games_ids, // Multiple games
+        amenities_ids: newGround.amenities_ids, // Multiple amenities
         status: newGround.status,
         description: newGround.description,
         openTime: newGround.openTime,
@@ -158,7 +165,7 @@ exports.list = async (req, res) => {
   try {
     const { id } = req.params;
     const grounds = await Ground.findAll({
-      attributes: ['id', 'name', 'address', 'city', 'games_ids', 'status', 'description', 'openTime', 'closeTime', 'image', 'images'],
+      attributes: ['id', 'name', 'address', 'city', 'games_ids', 'amenities_ids', 'status', 'description', 'openTime', 'closeTime', 'image', 'images'],
       order: [['id', 'ASC']],
       where: id ? { vendor_id: id } : {}
     });
@@ -195,12 +202,36 @@ exports.list = async (req, res) => {
         gamesArray = [];
       }
 
+      // Parse amenities_ids array
+      let amenitiesArray = [];
+      try {
+        if (ground.amenities_ids) {
+          if (typeof ground.amenities_ids === 'string') {
+            amenitiesArray = JSON.parse(ground.amenities_ids);
+          } else if (Array.isArray(ground.amenities_ids)) {
+            amenitiesArray = ground.amenities_ids;
+          }
+        }
+      } catch (error) {
+        amenitiesArray = [];
+      }
+
       // Fetch games data for these IDs
       let gamesData = [];
       if (gamesArray.length > 0) {
         gamesData = await Games.findAll({
           where: { id: { [Op.in]: gamesArray } },
-          attributes: ['id', 'name', 'image']
+          attributes: ['id', 'name', 'image','description']
+        });
+      }
+
+      // Fetch amenities data for these IDs
+      let amenitiesData = [];
+      if (amenitiesArray.length > 0) {
+        // Assuming Amenities model has an 'id' and 'name' field
+        amenitiesData = await Amenities.findAll({
+          where: { id: { [Op.in]: amenitiesArray } },
+          attributes: ['id', 'name']
         });
       }
   
@@ -210,7 +241,9 @@ exports.list = async (req, res) => {
         address: ground.address,
         city: ground.city,
         games: gamesArray, // Multiple games
+        amenities: amenitiesData, // Multiple amenities
         gameNames: gamesData, // Array of game names
+        amenityNames: amenitiesData, // Array of amenity names
         status: ground.status,
         description: ground.description,
         openTime: ground.openTime,
@@ -251,11 +284,6 @@ exports.getGround = async (req, res) => {
     }
 
     // Get all games for reference
-    const allGames = await Games.findAll({
-      attributes: ['id', 'name'],
-      order: [['name', 'ASC']]
-    });
-
     // Safely parse images array
     let imagesArray = [];
     try {
@@ -272,26 +300,55 @@ exports.getGround = async (req, res) => {
       imagesArray = [];
     }
 
-    // Parse games array
     let gamesArray = [];
     try {
-      if (ground.games) {
-        if (typeof ground.games === 'string') {
-          gamesArray = JSON.parse(ground.games);
-        } else if (Array.isArray(ground.games)) {
-          gamesArray = ground.games;
+      if (ground.games_ids) {
+        if (typeof ground.games_ids === 'string') {
+          gamesArray = JSON.parse(ground.games_ids);
+        } else if (Array.isArray(ground.games_ids)) {
+          gamesArray = ground.games_ids;
         }
       }
     } catch (error) {
-      console.error('Error parsing games for ground:', ground.id, error);
       gamesArray = [];
     }
 
-    // Get game names for all games
-    const gameNames = gamesArray.map(gameId => {
-      const game = allGames.find(g => g.id === gameId);
-      return game ? game.name : `Game ID ${gameId}`;
-    });
+    // Parse amenities_ids array
+    let amenitiesArray = [];
+    try {
+      if (ground.amenities_ids) {
+        if (typeof ground.amenities_ids === 'string') {
+          amenitiesArray = JSON.parse(ground.amenities_ids);
+        } else if (Array.isArray(ground.amenities_ids)) {
+          amenitiesArray = ground.amenities_ids;
+        }
+      }
+    } catch (error) {
+      amenitiesArray = [];
+    }
+
+    // Fetch games data for these IDs
+    let gamesData = [];
+    if (gamesArray.length > 0) {
+      gamesData = await Games.findAll({
+        where: { id: { [Op.in]: gamesArray } },
+        attributes: ['id', 'name', 'image','description']
+      });
+      gamesData = gamesData.map(game => ({
+        ...game.toJSON(),
+        imageUrl: game.image ? `${req.protocol}://${req.get('host')}${game.image}` : null
+      }));
+    }
+
+    // Fetch amenities data for these IDs
+    let amenitiesData = [];
+    if (amenitiesArray.length > 0) {
+      // Assuming Amenities model has an 'id' and 'name' field
+      amenitiesData = await Amenities.findAll({
+        where: { id: { [Op.in]: amenitiesArray } },
+        attributes: ['id', 'name']
+      });
+    }
 
     // Include full image URLs for all images and game data
     const groundWithUrl = {
@@ -300,7 +357,9 @@ exports.getGround = async (req, res) => {
       address: ground.address,
       city: ground.city,
       games: gamesArray, // Multiple games
-      gameNames: gameNames, // Array of game names
+      amenities: amenitiesArray, // Multiple amenities
+      gameNames: gamesData, // Array of game names
+      amenityNames: amenitiesData, // Array of amenity names
       status: ground.status,
       description: ground.description,
       openTime: ground.openTime,
@@ -344,6 +403,18 @@ exports.update = async (req, res) => {
       }
     }
 
+    // Parse amenities array if it's sent as JSON string
+    if (req.body.amenities && typeof req.body.amenities === 'string') {
+      try {
+        req.body.amenities = JSON.parse(req.body.amenities);
+      } catch (error) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid amenities array format'
+        });
+      }
+    }
+
     // Validate request body
     const { error, value } = groundSchema.validate(req.body, { abortEarly: false });
     if (error) {
@@ -355,7 +426,7 @@ exports.update = async (req, res) => {
     }
 
     // Destructure validated values (removed game field)
-    const { name, address, city, games, status, description, openTime, closeTime, vendor_id } = value;
+    const { name, address, city, games, amenities, status, description, openTime, closeTime, vendor_id } = value;
 
     // Find ground
     const ground = await Ground.findByPk(id);
@@ -396,6 +467,14 @@ exports.update = async (req, res) => {
       });
     }
 
+    // Validate amenities array
+    if (!amenities || !Array.isArray(amenities) || amenities.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'At least one amenity must be selected'
+      });
+    }
+
     // Handle image update
     let imagePath = ground.image;
     if (req.file) {
@@ -411,7 +490,8 @@ exports.update = async (req, res) => {
     ground.name = name;
     ground.address = address;
     ground.city = city;
-    ground.games = games; // Update multiple games
+    ground.games_ids = games; // Update multiple games
+    ground.amenities_ids = amenities; // Update multiple amenities
     ground.status = status;
     ground.description = description;
     ground.openTime = openTime;
@@ -429,7 +509,8 @@ exports.update = async (req, res) => {
         name: ground.name,
         address: ground.address,
         city: ground.city,
-        games: ground.games, // Multiple games
+        games: ground.games_ids, // Multiple games
+        amenities: ground.amenities_ids, // Multiple amenities
         status: ground.status,
         description: ground.description,
         openTime: ground.openTime,
