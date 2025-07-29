@@ -19,6 +19,11 @@ const Ground = sequelize.define('Ground', {
     type: DataTypes.STRING(50),
     allowNull: false,
   },
+  price: {
+    type: DataTypes.DECIMAL(10,2),
+    allowNull: false,
+    defaultValue: 0.00,
+  },
   status: {
     type: DataTypes.STRING(30),
     defaultValue: '',

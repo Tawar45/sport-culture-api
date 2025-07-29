@@ -54,6 +54,11 @@ const groundSchema = Joi.object({
   closeTime: Joi.string().required()
     .messages({
       'string.empty': 'Closing time is required',
+    }),
+  price: Joi.number().min(0).required()
+    .messages({
+      'number.base': 'Price is required',
+      'number.min': 'Price must be at least 0'
     })
 });
 
@@ -70,7 +75,7 @@ exports.add = async (req, res) => {
     }
 
     // Destructure validated values
-    const { name, address, city, games, amenities, status, description, openTime, closeTime, vendor_id } = value;
+    const { name, address, city, games, amenities, status, description, openTime, closeTime, vendor_id, price } = value;
 
     // Check if files were uploaded
     if (!req.files || req.files.length === 0) {
@@ -124,7 +129,8 @@ exports.add = async (req, res) => {
       closeTime,
       image: mainImagePath, // Keep main image for backward compatibility
       images: imagePaths, // Store all image paths
-      vendor_id
+      vendor_id,
+      price // <-- add price
     });
 
     // Return success response with all images and games
@@ -147,6 +153,7 @@ exports.add = async (req, res) => {
         images: newGround.images,
         imageUrls: newGround.images.map(img => `${req.protocol}://${req.get('host')}${img}`),
         vendor_id: newGround.vendor_id,
+        price: newGround.price, // Include price in response
         createdAt: newGround.createdAt
       }
     });
@@ -183,7 +190,7 @@ exports.list = async (req, res) => {
     }
   
     const grounds = await Ground.findAll({
-      attributes: ['id', 'name', 'address', 'city', 'games_ids', 'amenities_ids', 'status', 'description', 'openTime', 'closeTime', 'image', 'images'],
+      attributes: ['id', 'name', 'address', 'city', 'games_ids', 'amenities_ids', 'status', 'description', 'openTime', 'closeTime', 'image', 'images', 'price'],
       order: [['id', 'ASC']],
       where: whereClause
     });
@@ -269,7 +276,8 @@ exports.list = async (req, res) => {
         imageUrl: ground.image ? `${req.protocol}://${req.get('host')}${ground.image}` : null,
         images: imagesArray,
         imageUrls: imagesArray.map(img => `${req.protocol}://${req.get('host')}${img}`),
-        vendor_id: ground.vendor_id
+        vendor_id: ground.vendor_id,
+        price: ground.price // Include price in response
       };
     }));
 
@@ -386,6 +394,7 @@ exports.getGround = async (req, res) => {
       images: imagesArray,
       imageUrls: imagesArray.map(img => `${req.protocol}://${req.get('host')}${img}`),
       vendor_id: ground.vendor_id,
+      price: ground.price, // Include price in response
       createdAt: ground.createdAt,
       updatedAt: ground.updatedAt
     };
@@ -443,7 +452,7 @@ exports.update = async (req, res) => {
     }
 
     // Destructure validated values (removed game field)
-    const { name, address, city, games, amenities, status, description, openTime, closeTime, vendor_id } = value;
+    const { name, address, city, games, amenities, status, description, openTime, closeTime, vendor_id, price } = value;
 
     // Find ground
     const ground = await Ground.findByPk(id);
@@ -515,6 +524,7 @@ exports.update = async (req, res) => {
     ground.closeTime = closeTime;
     ground.image = imagePath;
     ground.vendor_id = vendor_id;
+    ground.price = price; // Update price
     await ground.save();
 
     // Return response
@@ -534,7 +544,8 @@ exports.update = async (req, res) => {
         closeTime: ground.closeTime,
         image: ground.image,
         imageUrl: `${req.protocol}://${req.get('host')}${ground.image}`,
-        vendor_id: ground.vendor_id
+        vendor_id: ground.vendor_id,
+        price: ground.price // Include price in response
       }
     });
 
