@@ -187,7 +187,6 @@ exports.list = async (req, res) => {
       order: [['id', 'ASC']],
       where: whereClause
     });
-     console.log(grounds,'grounds');
      
     const groundsWithUrls = await Promise.all(grounds.map(async ground => {
       // Safely parse images array
