@@ -3,9 +3,10 @@ const upload = require('../config/multerConfig');
 const fs = require('fs');
 const path = require('path');
 const Joi = require('joi');
-const { Op } = require('sequelize'); // Add Op import for operators
+const { Op, Sequelize } = require('sequelize'); // Add Sequelize import for literal queries
 const Games = require('../models/Games');
 const Amenities = require('../models/Amenities');
+const sequelize = require('../database/db');
 
 // Validation schema
 const groundSchema = Joi.object({
@@ -164,15 +165,32 @@ exports.add = async (req, res) => {
 exports.list = async (req, res) => {
   try {
     const { id } = req.params;
+    const { games } = req.query; // Get games filter from query parameters
+
+    // Build where clause
+    let whereClause = id ? { vendor_id: id } : {};
+    
+    // If games filter is provided, add it to the where clause
+    if (games) {
+      const gameIds = games.split(',').map(id => parseInt(id.trim()));      
+      // Use JSON_CONTAINS for MySQL JSON array filtering
+      whereClause = {
+        ...whereClause,
+        [Op.or]: gameIds.map(gameId => 
+          sequelize.literal(`JSON_CONTAINS(games_ids, '${gameId}')`)
+        )
+      };
+    }
+  
     const grounds = await Ground.findAll({
       attributes: ['id', 'name', 'address', 'city', 'games_ids', 'amenities_ids', 'status', 'description', 'openTime', 'closeTime', 'image', 'images'],
       order: [['id', 'ASC']],
-      where: id ? { vendor_id: id } : {}
+      where: whereClause
     });
-
+     console.log(grounds,'grounds');
+     
     const groundsWithUrls = await Promise.all(grounds.map(async ground => {
       // Safely parse images array
-
       let imagesArray = [];
       try {
         if (ground.images) {
