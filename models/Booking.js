@@ -3,7 +3,7 @@ const sequelize = require('../database/db');
 
 const Booking = sequelize.define('Booking', {
   id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
-  user_id: { type: DataTypes.INTEGER, allowNull: false },
+  user_id: { type: DataTypes.STRING(20), allowNull: false },
   ground_id: { type: DataTypes.INTEGER, allowNull: false },
   game_id: { type: DataTypes.INTEGER, allowNull: false },
   booking_date: { type: DataTypes.DATEONLY, allowNull: false },
