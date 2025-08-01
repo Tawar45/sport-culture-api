@@ -74,6 +74,8 @@ exports.listCourts = async (req, res) => {
     // Optionally include slots
     const courtsWithSlots = await Promise.all(
       courts.map(async court => {
+        const games = await Games.findOne({ where: { id : court.games_id } });
+
         const slots = await CourtSlot.findAll({ where: { court_id: court.id } });
         // Group slots by day
         const slotsPerDay = {};
@@ -86,7 +88,9 @@ exports.listCourts = async (req, res) => {
         return { 
           ...courtData, 
           slotsPerDay,
-          ground_name: courtData.ground ? courtData.ground.name : null
+          ground_name: courtData.ground ? courtData.ground.name : null,
+          games : games
+
         };
       })
     );

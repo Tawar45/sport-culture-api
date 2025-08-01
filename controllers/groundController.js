@@ -59,6 +59,11 @@ const groundSchema = Joi.object({
     .messages({
       'number.base': 'Price is required',
       'number.min': 'Price must be at least 0'
+    }),
+  rules_and_guidelines: Joi.string().min(10).max(1000).required().trim()
+    .messages({
+      'string.empty': 'Rules and guidelines are required',
+      'string.min': 'Rules and guidelines must be at least 10 characters'
     })
 });
 
@@ -75,7 +80,7 @@ exports.add = async (req, res) => {
     }
 
     // Destructure validated values
-    const { name, address, city, games, amenities, status, description, openTime, closeTime, vendor_id, price } = value;
+    const { name, address, city, games, amenities, status, description, openTime, closeTime, vendor_id, price, rules_and_guidelines } = value;
 
     // Check if files were uploaded
     if (!req.files || req.files.length === 0) {
@@ -130,7 +135,8 @@ exports.add = async (req, res) => {
       image: mainImagePath, // Keep main image for backward compatibility
       images: imagePaths, // Store all image paths
       vendor_id,
-      price // <-- add price
+      price,
+      rules_and_guidelines
     });
 
     // Return success response with all images and games
@@ -154,6 +160,7 @@ exports.add = async (req, res) => {
         imageUrls: newGround.images.map(img => `${req.protocol}://${req.get('host')}${img}`),
         vendor_id: newGround.vendor_id,
         price: newGround.price, // Include price in response
+        rules_and_guidelines: newGround.rules_and_guidelines, // Include rules and guidelines
         createdAt: newGround.createdAt
       }
     });
@@ -190,7 +197,7 @@ exports.list = async (req, res) => {
     }
   
     const grounds = await Ground.findAll({
-      attributes: ['id', 'name', 'address', 'city', 'games_ids', 'amenities_ids', 'status', 'description', 'openTime', 'closeTime', 'image', 'images', 'price'],
+      attributes: ['id', 'name', 'address', 'city', 'games_ids', 'amenities_ids', 'status', 'description', 'openTime', 'closeTime', 'image', 'images', 'price', 'rules_and_guidelines'],
       order: [['id', 'ASC']],
       where: whereClause
     });
@@ -277,7 +284,8 @@ exports.list = async (req, res) => {
         images: imagesArray,
         imageUrls: imagesArray.map(img => `${req.protocol}://${req.get('host')}${img}`),
         vendor_id: ground.vendor_id,
-        price: ground.price // Include price in response
+        price: ground.price, // Include price in response
+        rules_and_guidelines: ground.rules_and_guidelines, // Include rules and guidelines
       };
     }));
 
@@ -396,7 +404,8 @@ exports.getGround = async (req, res) => {
       vendor_id: ground.vendor_id,
       price: ground.price, // Include price in response
       createdAt: ground.createdAt,
-      updatedAt: ground.updatedAt
+      updatedAt: ground.updatedAt,
+      rules_and_guidelines: ground.rules_and_guidelines, // Include rules and guidelines
     };
 
     res.status(200).json({
@@ -452,7 +461,7 @@ exports.update = async (req, res) => {
     }
 
     // Destructure validated values (removed game field)
-    const { name, address, city, games, amenities, status, description, openTime, closeTime, vendor_id, price } = value;
+    const { name, address, city, games, amenities, status, description, openTime, closeTime, vendor_id, price, rules_and_guidelines } = value;
 
     // Find ground
     const ground = await Ground.findByPk(id);
@@ -525,6 +534,7 @@ exports.update = async (req, res) => {
     ground.image = imagePath;
     ground.vendor_id = vendor_id;
     ground.price = price; // Update price
+    ground.rules_and_guidelines = rules_and_guidelines; // Update rules and guidelines
     await ground.save();
 
     // Return response
@@ -545,7 +555,8 @@ exports.update = async (req, res) => {
         image: ground.image,
         imageUrl: `${req.protocol}://${req.get('host')}${ground.image}`,
         vendor_id: ground.vendor_id,
-        price: ground.price // Include price in response
+        price: ground.price, // Include price in response
+        rules_and_guidelines: ground.rules_and_guidelines, // Include rules and guidelines
       }
     });
 
@@ -558,7 +569,7 @@ exports.update = async (req, res) => {
     });
   }
 };
-
+  
 exports.remove = async (req, res) => {
   try {
     const { id } = req.params;

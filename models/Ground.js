@@ -32,6 +32,10 @@ const Ground = sequelize.define('Ground', {
     type: DataTypes.TEXT,
     allowNull: false,
   },
+  rules_and_guidelines: {
+    type: DataTypes.TEXT,
+    allowNull: false,
+  },
   openTime: {
     type: DataTypes.STRING(10),
     allowNull: false,

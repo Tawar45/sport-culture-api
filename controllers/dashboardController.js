@@ -7,6 +7,8 @@ const Booking = require('../models/Booking');
 const { Op } = require('sequelize');
 
 exports.getStats = async (req, res) => {
+   const { id } = req.query; // from ?id=2
+
   try {
     // Get total users (excluding vendors)
     const userCount = await User.count({
@@ -25,16 +27,29 @@ exports.getStats = async (req, res) => {
     // Get total cities count from City model
     const citiesCount = await City.count();
 
-    // Get total grounds count
-    const groundsCount = await Ground.count({
-      where: {
-        status: 'active'
-      }
+    const whereCondition = {
+      status: 'active',
+    };
+    
+    if (id) {
+      whereCondition.vendor_id = id; // or whatever field links ground to vendor
+    }
+    const activeGrounds = await Ground.findAll({
+      attributes: ['id'],
+      where: whereCondition,
     });
-
-    // Get total courts count
-    const courtsCount = await Court.count();
-
+    
+    const groundIds = activeGrounds.map(g => g.id);
+    
+    // Step 2: Count courts where ground_id is in active ground IDs
+    let courtsCount = 0;
+    if (groundIds.length > 0) {
+      courtsCount = await Court.count({
+        where: {
+          ground_id: groundIds,
+        },
+      });
+    }
     // Get total games count
     const gamesCount = await Games.count();
 
@@ -48,7 +63,7 @@ exports.getStats = async (req, res) => {
         vendors: vendorCount,
         cities: citiesCount,
         bookings: bookingsCount,
-        grounds: groundsCount,
+        grounds: activeGrounds.length,
         courts: courtsCount,
         games: gamesCount
       }
